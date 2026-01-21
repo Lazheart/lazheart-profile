@@ -220,7 +220,7 @@ case "$machine_choice" in
         mkdir -p "$HOME/.icons"
         mkdir -p "$HOME/.wallpapers"
         mkdir -p "$HOME/.assets"
-        echo "✓ Carpetas creadas"
+        echo " Carpetas creadas"
 
         # ---------------- COPIANDO ARCHIVOS ----------------
         echo ""
@@ -230,28 +230,28 @@ case "$machine_choice" in
         
         if [ -d "$REPO_DIR/assets" ]; then
             cp -r "$REPO_DIR/assets"/* "$HOME/.assets/" 2>/dev/null || true
-            echo "✓ Assets copiados"
+            echo " Assets copiados"
         fi
         
         if [ -d "$REPO_DIR/wallpapers" ]; then
             cp -r "$REPO_DIR/wallpapers"/* "$HOME/.wallpapers/" 2>/dev/null || true
-            echo "✓ Wallpapers copiados"
+            echo " Wallpapers copiados"
         fi
         
         if [ -d "$REPO_DIR/themes" ]; then
             cp -r "$REPO_DIR/themes"/* "$HOME/.themes/" 2>/dev/null || true
-            echo "✓ Temas copiados"
+            echo " Temas copiados"
         fi
         
         if [ -d "$REPO_DIR/icons" ]; then
             cp -r "$REPO_DIR/icons"/* "$HOME/.icons/" 2>/dev/null || true
-            echo "✓ Iconos copiados"
+            echo "Iconos copiados"
         fi
         
         if [ -d "$REPO_DIR/gnome-extensions" ]; then
             mkdir -p "$HOME/.local/share/gnome-shell/extensions"
             cp -r "$REPO_DIR/gnome-extensions"/* "$HOME/.local/share/gnome-shell/extensions/" 2>/dev/null || true
-            echo "✓ Extensiones de GNOME copiadas"
+            echo "Extensiones de GNOME copiadas"
         fi
 
         # ---------------- GRUB ----------------
