@@ -253,6 +253,15 @@ case "$machine_choice" in
             cp -r "$REPO_DIR/gnome-extensions"/* "$HOME/.local/share/gnome-shell/extensions/" 2>/dev/null || true
             echo "Extensiones de GNOME copiadas"
         fi
+        
+        # ---------------Foto de user----------------------
+        echo "Seteando foto de usuario..."
+        if [ -f "$REPO_DIR/assets/yo.png" ]; then
+            cp "$REPO_DIR/assets/yo.png" "$HOME/.face"
+            echo " Foto de usuario seteada"
+        else
+            echo " Archivo de foto de usuario no encontrado"
+        fi
 
         # ---------------- GRUB ----------------
         echo ""
@@ -265,7 +274,6 @@ case "$machine_choice" in
             echo "✓ Tema GRUB aplicado"
         fi
 
-        echo ""
         echo "========================================"
         echo "   Setup completado exitosamente"
         echo "========================================"
