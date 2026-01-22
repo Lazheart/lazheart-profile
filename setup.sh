@@ -209,7 +209,8 @@ case "$machine_choice" in
         flatpak install -y flathub com.discordapp.Discord
         flatpak install -y flathub com.heroicgameslauncher.hgl
         flatpak install -y flathub org.armagetronad.ArmagetronAdvanced
-        echo "✓ Aplicaciones Flatpak instaladas"
+	flatpak install -y flathub io.github.realmazharhussain.GdmSettings
+        echo " Aplicaciones Flatpak instaladas"
 
         # ---------------- CARPETAS DE ASPECTO ----------------
         echo ""
