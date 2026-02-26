@@ -1,14 +1,14 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 # ============================
 # Detectar usuario real y home
 # ============================
 if [ "$EUID" -eq 0 ]; then
-    if [ -n "$SUDO_USER" ]; then
+    if [ -n "${SUDO_USER:-}" ]; then
         TARGET_USER="$SUDO_USER"
     else
-        read -p "Ejecutando como root. Ingresa el usuario destino para copiar archivos: " TARGET_USER
+        read -rp "Ejecutando como root. Ingresa el usuario destino: " TARGET_USER
         if ! id "$TARGET_USER" &>/dev/null; then
             echo "El usuario '$TARGET_USER' no existe."
             exit 1
@@ -19,24 +19,36 @@ else
 fi
 
 HOME_DIR=$(eval echo "~$TARGET_USER")
+
 echo "Usuario destino: $TARGET_USER"
-echo "Directorio home: $HOME_DIR"
+echo "Home: $HOME_DIR"
 
 # ============================
-# Verificar sudo del usuario destino
+# Verificar permisos admin
 # ============================
-if ! id -nG "$TARGET_USER" | grep -qw sudo; then
-    if [ "$EUID" -ne 0 ]; then
-        echo "El usuario '$TARGET_USER' no tiene sudo. Ejecuta el script como root primero."
-        exit 1
-    else
-        echo "El usuario '$TARGET_USER' no tiene sudo. Agregando al grupo sudo..."
-        usermod -aG sudo "$TARGET_USER"
-        echo "Usuario '$TARGET_USER' agregado al grupo sudo."
-        echo "Cierra sesión y vuelve a entrar con '$TARGET_USER', luego ejecuta el script de nuevo usando sudo."
-        exit 0
-    fi
+echo "Verificando permisos..."
+
+HAS_ADMIN=false
+if id -nG "$TARGET_USER" | grep -qwE "sudo|wheel"; then
+    HAS_ADMIN=true
 fi
+
+if [ "$HAS_ADMIN" = false ]; then
+    echo "========================================="
+    echo "El usuario '$TARGET_USER' no tiene permisos de administrador."
+    echo "Ejecuta como root:"
+    if getent group sudo &>/dev/null; then
+        echo "  usermod -aG sudo $TARGET_USER"
+    elif getent group wheel &>/dev/null; then
+        echo "  usermod -aG wheel $TARGET_USER"
+    else
+        echo "No existe grupo sudo ni wheel."
+    fi
+    echo "Luego reinicia sesión."
+    exit 1
+fi
+
+echo "✓ Permisos confirmados"
 
 # ============================
 # Directorio del repo
@@ -44,26 +56,24 @@ fi
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "REPO_DIR = $REPO_DIR"
 
+if [ ! -d "$REPO_DIR" ]; then
+    echo "No se pudo determinar el directorio del repo."
+    exit 1
+fi
+
 # ============================
 # Menú principal
 # ============================
 echo "------------- Lazheart Setup -----------------"
-cat <<EOF
-Selecciona si es la maquina host o clone
-1) Maquina Host (Guardar configuración actual al repo)
-2) Maquina Clone (Instalar desde el repo)
-EOF
-
-echo -n "Selecciona una opción [1-2]: "
-read -r machine_choice
+echo "1) Maquina Host (Guardar configuración)"
+echo "2) Maquina Clone (Instalar desde repo)"
+read -rp "Selecciona [1-2]: " machine_choice
 
 case "$machine_choice" in
 
 # ================= HOST =================
 1)
-    echo "========================================"
-    echo " Guardando configuración al repo"
-    echo "========================================"
+    echo "Guardando configuración..."
 
     mkdir -p \
         "$REPO_DIR/icons" \
@@ -76,75 +86,62 @@ case "$machine_choice" in
         if [ -d "$HOME_DIR/.${dir}" ]; then
             echo "Copiando $dir..."
             shopt -s nullglob
-            cp -r "$HOME_DIR/.${dir}/"* "$REPO_DIR/$dir/" 2>/dev/null || true
+            cp -r "$HOME_DIR/.${dir}/"* "$REPO_DIR/$dir/" || true
             shopt -u nullglob
-            echo "✓ $dir guardados"
         fi
     done
 
     if [ -d "$HOME_DIR/.local/share/gnome-shell/extensions" ]; then
         shopt -s nullglob
         cp -r "$HOME_DIR/.local/share/gnome-shell/extensions/"* \
-            "$REPO_DIR/gnome-extensions/" 2>/dev/null || true
+            "$REPO_DIR/gnome-extensions/" || true
         shopt -u nullglob
-        echo "✓ Extensiones de GNOME guardadas"
     fi
 
-    echo "========================================"
-    echo " Configuración guardada exitosamente"
-    echo "========================================"
-    exit 0
-;;
+    echo "Configuración guardada correctamente."
+    ;;
 
 # ================= CLONE =================
 2)
-    echo "========================================"
-    echo " Instalando desde el repo"
-    echo "========================================"
+    echo "Instalando desde repo..."
 
-    cat <<EOF
-Escoge tu distro:
-1) Ubuntu / Debian (apt)
-2) Fedora (dnf)
-3) Arch Linux (pacman)
-4) Fedora Silverblue (rpm-ostree)
-5) Salir
-EOF
-
-    echo -n "Selecciona una opción [1-5]: "
-    read -r distro_choice
+    echo "1) Ubuntu / Debian"
+    echo "2) Arch Linux"
+    echo "3) Salir"
+    read -rp "Selecciona [1-3]: " distro_choice
 
     case "$distro_choice" in
         1)
             sudo apt update && sudo apt upgrade -y
-            sudo apt install -y git docker.io curl nodejs npm flatpak flatpak-builder \
-                gnome-shell-extensions gnome-shell-extension-manager gnome-tweaks
+            sudo apt install -y \
+                git \
+                docker.io docker-compose-plugin \
+                curl nodejs npm \
+                openjdk-21-jdk maven \
+                flatpak flatpak-builder \
+                gnome-shell-extensions \
+                gnome-shell-extension-manager \
+                gnome-tweaks
         ;;
         2)
-            sudo dnf upgrade --refresh -y
-            sudo dnf install -y git docker curl nodejs npm flatpak flatpak-builder \
-                gnome-shell-extensions gnome-shell-extension-manager gnome-tweaks
+            sudo pacman -Syu --noconfirm
+            sudo pacman -S --noconfirm \
+                git docker curl nodejs npm \
+                jdk-openjdk maven \
+                flatpak flatpak-builder \
+                gnome-shell-extensions \
+                gnome-shell-extension-manager \
+                gnome-tweaks
         ;;
-        3)
-            sudo pacman -S --noconfirm git docker curl nodejs npm flatpak flatpak-builder \
-                gnome-shell-extensions gnome-shell-extension-manager gnome-tweaks
-        ;;
-        4)
-            sudo rpm-ostree install git docker curl nodejs npm flatpak flatpak-builder \
-                gnome-shell-extensions gnome-shell-extension-manager gnome-tweaks
-            echo "Reinicia el sistema para aplicar rpm-ostree"
-        ;;
-        5) exit 0 ;;
+        3) exit 0 ;;
         *) echo "Opción inválida"; exit 1 ;;
     esac
 
-    sudo systemctl enable --now docker || true
+    # Docker
+    sudo systemctl enable --now docker
     sudo usermod -aG docker "$TARGET_USER"
 
-    echo "========================================"
-    echo " Configurando Flatpak"
-    echo "========================================"
-
+    # Flatpak
     sudo flatpak remote-add --if-not-exists flathub \
         https://dl.flathub.org/repo/flathub.flatpakrepo
 
@@ -154,12 +151,12 @@ EOF
         com.discordapp.Discord \
         com.heroicgameslauncher.hgl \
         org.armagetronad.ArmagetronAdvanced \
+        com.google.Chrome \
+        com.stremio.Stremio \
+        md.obsidian.Obsidian \
         io.github.realmazharhussain.GdmSettings || true
 
-    echo "========================================"
-    echo " Copiando archivos de aspecto"
-    echo "========================================"
-
+    # Copiar archivos visuales
     mkdir -p \
         "$HOME_DIR/.themes" \
         "$HOME_DIR/.icons" \
@@ -168,31 +165,41 @@ EOF
         "$HOME_DIR/.local/share/gnome-shell/extensions"
 
     shopt -s nullglob
-    cp -r "$REPO_DIR/themes/"* "$HOME_DIR/.themes/" 2>/dev/null || true
-    cp -r "$REPO_DIR/icons/"* "$HOME_DIR/.icons/" 2>/dev/null || true
-    cp -r "$REPO_DIR/wallpapers/"* "$HOME_DIR/.wallpapers/" 2>/dev/null || true
-    cp -r "$REPO_DIR/assets/"* "$HOME_DIR/.assets/" 2>/dev/null || true
+    cp -r "$REPO_DIR/themes/"* "$HOME_DIR/.themes/" || true
+    cp -r "$REPO_DIR/icons/"* "$HOME_DIR/.icons/" || true
+    cp -r "$REPO_DIR/wallpapers/"* "$HOME_DIR/.wallpapers/" || true
+    cp -r "$REPO_DIR/assets/"* "$HOME_DIR/.assets/" || true
     cp -r "$REPO_DIR/gnome-extensions/"* \
-        "$HOME_DIR/.local/share/gnome-shell/extensions/" 2>/dev/null || true
+        "$HOME_DIR/.local/share/gnome-shell/extensions/" || true
     shopt -u nullglob
 
+    # Permisos correctos
+    sudo chown -R "$TARGET_USER":"$TARGET_USER" \
+        "$HOME_DIR/.themes" \
+        "$HOME_DIR/.icons" \
+        "$HOME_DIR/.wallpapers" \
+        "$HOME_DIR/.assets" \
+        "$HOME_DIR/.local/share/gnome-shell/extensions"
+
+    # Imagen de perfil
     if [ -f "$REPO_DIR/assets/yo.png" ]; then
         cp "$REPO_DIR/assets/yo.png" "$HOME_DIR/.face"
+        sudo chown "$TARGET_USER":"$TARGET_USER" "$HOME_DIR/.face"
     fi
 
+    # Script GRUB opcional
     if [ -f "$REPO_DIR/grub/2k/install.sh" ]; then
         sudo chmod +x "$REPO_DIR/grub/2k/install.sh"
         sudo bash "$REPO_DIR/grub/2k/install.sh"
     fi
 
-    echo "========================================"
-    echo " Setup completado exitosamente"
-    echo "Cierra sesión para usar Docker"
-    echo "========================================"
-;;
+    echo "Setup completado."
+    echo "Reiniciando en 5 segundos..."
+    sleep 5
+    sudo reboot
+    ;;
 *)
     echo "Opción inválida"
     exit 1
 ;;
 esac
-
