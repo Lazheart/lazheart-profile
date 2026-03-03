@@ -115,7 +115,7 @@ case "$machine_choice" in
             sudo apt update && sudo apt upgrade -y
             sudo apt install -y \
                 git \
-                docker.io docker-compose-plugin \
+                docker.io  \
                 curl nodejs npm \
                 openjdk-21-jdk maven \
                 flatpak flatpak-builder \
